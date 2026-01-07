@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DeepSeek RPG: Interactive</title>
+    <title>DeepSeek RPG: Chimera Edition</title>
     <style>
         :root {
             --bg-color: #0d1117;
@@ -12,8 +12,6 @@
             --user-text: #00e5ff;
             --dim-text: #2d5e2d;
             --highlight: #adff2f;
-            --btn-bg: #1a1a1a;
-            --btn-border: #33ff00;
         }
 
         body {
@@ -65,17 +63,15 @@
             font-size: 16px;
             line-height: 1.6;
             scroll-behavior: smooth;
-            padding-bottom: 10px;
         }
 
         .message { margin-bottom: 20px; animation: fadeIn 0.3s forwards; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        .dm-msg { color: var(--text-color); text-shadow: 0 0 2px var(--dim-text); }
+        .dm-msg { color: var(--text-color); }
         .user-msg { color: var(--user-text); text-align: right; border-right: 2px solid var(--user-text); padding-right: 10px; }
-        .error-msg { color: #ff3333; border: 1px solid #ff3333; padding: 10px; }
+        .error-msg { color: #ff3333; border: 1px solid #ff3333; padding: 10px; background: rgba(50,0,0,0.5); }
 
-        /* Секция с кнопками выборов */
         #choices-container {
             display: flex;
             flex-wrap: wrap;
@@ -83,32 +79,25 @@
             padding: 0 20px 15px 20px;
             min-height: 50px;
             justify-content: flex-end;
+            z-index: 20;
         }
 
         .choice-btn {
-            background: var(--bg-color);
+            background: #001100;
             border: 1px solid var(--dim-text);
             color: var(--highlight);
-            padding: 8px 15px;
+            padding: 10px 15px;
             cursor: pointer;
             font-family: inherit;
             font-size: 14px;
             transition: 0.2s;
             text-align: left;
-            max-width: 100%;
-            z-index: 20;
         }
 
         .choice-btn:hover {
             border-color: var(--highlight);
-            background: #112211;
+            background: #002200;
             box-shadow: 0 0 10px var(--dim-text);
-        }
-
-        .choice-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            border-color: #333;
         }
 
         .input-area {
@@ -140,52 +129,52 @@
             cursor: pointer;
             font-weight: bold;
         }
-        button#send-btn:hover { background: var(--highlight); }
-        button#send-btn:disabled { background: #333; }
+        button#send-btn:disabled { background: #333; cursor: not-allowed; }
     </style>
 </head>
 <body>
 
 <div class="crt-container">
     <div class="crt-overlay"></div>
-    <header>DeepSeek RPG // INTERACTIVE</header>
+    <header>DeepSeek R1T2 // CHIMERA RPG</header>
     
     <div id="game-log">
-        <div class="message dm-msg">>> SYSTEM: Нейро-ядро подключено.</div>
-        <div class="message dm-msg">Выберите жанр для инициализации симуляции:</div>
+        <div class="message dm-msg">>> SYSTEM: Подключение к модулю Chimera (Free)...</div>
+        <div class="message dm-msg">>> SYSTEM: Связь установлена.</div>
+        <div class="message dm-msg">В каком жанре начнем игру?</div>
     </div>
 
     <div id="choices-container">
         <button class="choice-btn" onclick="handleChoice('Киберпанк')">1. Киберпанк</button>
-        <button class="choice-btn" onclick="handleChoice('Космический Хоррор')">2. Космический Хоррор</button>
-        <button class="choice-btn" onclick="handleChoice('Темное Фэнтези')">3. Темное Фэнтези</button>
+        <button class="choice-btn" onclick="handleChoice('Хоррор в космосе')">2. Хоррор в космосе</button>
+        <button class="choice-btn" onclick="handleChoice('Постапокалипсис')">3. Постапокалипсис</button>
     </div>
 
     <div class="input-area">
-        <input type="text" id="user-input" placeholder="Или введите свое действие..." autocomplete="off">
+        <input type="text" id="user-input" placeholder="Ваше действие..." autocomplete="off">
         <button id="send-btn">⏎</button>
     </div>
 </div>
 
 <script>
-    // --- КЛЮЧ ---
-    const API_KEY = "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";
+    // --- НАСТРОЙКИ ---
+    const API_KEY = "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";
     const API_URL = "https://openrouter.ai/api/v1/chat/completions";
-    
-    // ВАЖНО: Системная инструкция теперь требует JSON
+    // Используем бесплатную модель из вашего списка:
+    const MODEL_ID = "tngtech/deepseek-r1t2-chimera:free"; 
+
     const SYSTEM_PROMPT = `
-    Ты — Dungeon Master в текстовой игре. 
-    ТВОЯ ЗАДАЧА: Вести игру, описывать ситуации и предлагать выбор.
+    Ты — Dungeon Master (Ведущий). Твоя задача: вести текстовую RPG на русском языке.
     
-    ФОРМАТ ОТВЕТА (СТРОГИЙ JSON):
-    Ты ОБЯЗАН отвечать ТОЛЬКО валидным JSON объектом без лишнего текста и без markdown блоков.
+    ВАЖНО: Твой ответ ВСЕГДА должен быть в формате JSON. Не пиши никакого вступления, только JSON.
+    
     Структура JSON:
     {
-        "story": "Здесь твое художественное описание ситуации (максимум 400 символов).",
-        "options": ["Короткий вариант действия 1", "Короткий вариант действия 2", "Короткий вариант действия 3"]
+        "story": "Текст ситуации (атмосферный, но лаконичный, до 500 символов).",
+        "options": ["Вариант действия 1", "Вариант действия 2", "Вариант действия 3"]
     }
-    
-    Никогда не выходи из роли. Язык: Русский.
+
+    Если пользователь говорит не по теме, обыграй это в сюжете или верни игру в русло.
     `;
 
     let conversationHistory = [
@@ -197,26 +186,19 @@
     const sendBtn = document.getElementById('send-btn');
     const choicesContainer = document.getElementById('choices-container');
 
-    // Функция прокрутки вниз
-    function scrollToBottom() {
-        gameLog.scrollTop = gameLog.scrollHeight;
-    }
-
-    // Добавление сообщения в чат
     function appendMessage(sender, text, isError = false) {
         const div = document.createElement('div');
         div.classList.add('message');
         div.classList.add(isError ? 'error-msg' : (sender === 'User' ? 'user-msg' : 'dm-msg'));
-        
-        // Обработка переносов строк
         div.innerHTML = isError ? text : `[${sender}]: ${text.replace(/\n/g, '<br>')}`;
         gameLog.appendChild(div);
-        scrollToBottom();
+        gameLog.scrollTop = gameLog.scrollHeight;
     }
 
-    // Рендер кнопок выбора
     function renderButtons(options) {
-        choicesContainer.innerHTML = ''; // Очищаем старые
+        choicesContainer.innerHTML = ''; 
+        if (!options || !Array.isArray(options)) return;
+        
         options.forEach(opt => {
             const btn = document.createElement('button');
             btn.classList.add('choice-btn');
@@ -226,20 +208,16 @@
         });
     }
 
-    // Обработка клика по кнопке или ввода текста
     async function handleChoice(text) {
         if (!text) return;
         
-        // 1. Интерфейс
         appendMessage("User", text);
         userInput.value = '';
-        setLoadingState(true);
-        choicesContainer.innerHTML = ''; // Убираем кнопки, пока думает
+        choicesContainer.innerHTML = ''; 
+        setLoading(true);
 
-        // 2. Добавляем в историю
         conversationHistory.push({ role: "user", content: text });
 
-        // 3. Запрос к API
         try {
             const response = await fetch(API_URL, {
                 method: "POST",
@@ -247,61 +225,72 @@
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${API_KEY}`,
                     "HTTP-Referer": window.location.href,
-                    "X-Title": "DeepSeek RPG"
+                    "X-Title": "Chimera RPG"
                 },
                 body: JSON.stringify({
-                    model: "deepseek/deepseek-chat",
+                    model: MODEL_ID,
                     messages: conversationHistory,
-                    temperature: 1.1, // Креативность
-                    response_format: { type: "json_object" } // Просим JSON явно (если API поддерживает)
+                    temperature: 0.8, // Чуть ниже, чтобы формат не ломался
+                    // Убрали response_format, так как бесплатные модели могут его не поддерживать
                 })
             });
 
-            if (!response.ok) throw new Error("Ошибка сервера: " + response.status);
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`Ошибка API ${response.status}: ${errText}`);
+            }
 
             const data = await response.json();
+            
+            if (!data.choices || !data.choices[0]) {
+                 throw new Error("Пустой ответ от нейросети");
+            }
+
             const rawContent = data.choices[0].message.content;
 
-            // 4. Парсинг ответа (попытка извлечь JSON)
-            let parsedResponse;
+            // --- Умный парсинг JSON ---
+            let result;
             try {
-                // Иногда ИИ пишет ```json ... ```, чистим это
-                const cleanJson = rawContent.replace(/```json/g, '').replace(/```/g, '').trim();
-                parsedResponse = JSON.parse(cleanJson);
+                // Ищем первую фигурную скобку и последнюю
+                const jsonStart = rawContent.indexOf('{');
+                const jsonEnd = rawContent.lastIndexOf('}');
+                
+                if (jsonStart !== -1 && jsonEnd !== -1) {
+                    const jsonString = rawContent.substring(jsonStart, jsonEnd + 1);
+                    result = JSON.parse(jsonString);
+                } else {
+                    throw new Error("JSON не найден");
+                }
             } catch (e) {
-                console.error("Ошибка парсинга JSON:", e);
-                // Если ИИ сломался и вернул просто текст
-                parsedResponse = {
+                console.warn("Ошибка парсинга JSON, используем raw text:", e);
+                // Если модель вернула просто текст, а не JSON
+                result = {
                     story: rawContent,
-                    options: ["Продолжить", "Осмотреться"]
+                    options: ["Продолжить", "Осмотреться", "Попробовать что-то еще"]
                 };
             }
 
-            // 5. Вывод результата
-            appendMessage("DM", parsedResponse.story);
-            renderButtons(parsedResponse.options || []);
+            appendMessage("DM", result.story || "...");
+            renderButtons(result.options);
             
-            // Сохраняем ответ ассистента в историю, но в виде строки
+            // Сохраняем ответ ассистента
             conversationHistory.push({ role: "assistant", content: rawContent });
 
         } catch (error) {
             appendMessage("SYSTEM", error.message, true);
-            // Кнопка восстановления
             renderButtons(["Попробовать снова"]);
         } finally {
-            setLoadingState(false);
+            setLoading(false);
         }
     }
 
-    // Управление состоянием загрузки
-    function setLoadingState(isLoading) {
+    function setLoading(isLoading) {
         userInput.disabled = isLoading;
         sendBtn.disabled = isLoading;
         sendBtn.innerText = isLoading ? "..." : "⏎";
         if (!isLoading) userInput.focus();
     }
 
-    // Слушатели событий ввода
     sendBtn.addEventListener('click', () => handleChoice(userInput.value.trim()));
     userInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') handleChoice(userInput.value.trim());
