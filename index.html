@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DeepSeek RPG: OpenRouter Live</title>
+    <title>DeepSeek RPG: Interactive</title>
     <style>
         :root {
             --bg-color: #0d1117;
@@ -11,7 +11,9 @@
             --text-color: #33ff00;
             --user-text: #00e5ff;
             --dim-text: #2d5e2d;
-            --error-text: #ff3333;
+            --highlight: #adff2f;
+            --btn-bg: #1a1a1a;
+            --btn-border: #33ff00;
         }
 
         body {
@@ -53,6 +55,7 @@
             text-transform: uppercase;
             letter-spacing: 2px;
             font-weight: bold;
+            color: var(--highlight);
         }
 
         #game-log {
@@ -62,14 +65,51 @@
             font-size: 16px;
             line-height: 1.6;
             scroll-behavior: smooth;
+            padding-bottom: 10px;
         }
 
-        .message { margin-bottom: 15px; animation: fadeIn 0.3s forwards; }
+        .message { margin-bottom: 20px; animation: fadeIn 0.3s forwards; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        .dm-msg { color: var(--text-color); }
-        .user-msg { color: var(--user-text); text-align: right; }
-        .error-msg { color: var(--error-text); border: 1px solid var(--error-text); padding: 10px; background: rgba(50,0,0,0.5); }
+        .dm-msg { color: var(--text-color); text-shadow: 0 0 2px var(--dim-text); }
+        .user-msg { color: var(--user-text); text-align: right; border-right: 2px solid var(--user-text); padding-right: 10px; }
+        .error-msg { color: #ff3333; border: 1px solid #ff3333; padding: 10px; }
+
+        /* Секция с кнопками выборов */
+        #choices-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 0 20px 15px 20px;
+            min-height: 50px;
+            justify-content: flex-end;
+        }
+
+        .choice-btn {
+            background: var(--bg-color);
+            border: 1px solid var(--dim-text);
+            color: var(--highlight);
+            padding: 8px 15px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 14px;
+            transition: 0.2s;
+            text-align: left;
+            max-width: 100%;
+            z-index: 20;
+        }
+
+        .choice-btn:hover {
+            border-color: var(--highlight);
+            background: #112211;
+            box-shadow: 0 0 10px var(--dim-text);
+        }
+
+        .choice-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            border-color: #333;
+        }
 
         .input-area {
             padding: 20px;
@@ -90,9 +130,9 @@
             font-size: 16px;
             outline: none;
         }
-        input[type="text"]:focus { border-color: var(--text-color); }
+        input[type="text"]:focus { border-color: var(--highlight); }
 
-        button {
+        button#send-btn {
             background: var(--dim-text);
             color: #000;
             border: none;
@@ -100,126 +140,172 @@
             cursor: pointer;
             font-weight: bold;
         }
-        button:hover { background: var(--text-color); }
-        button:disabled { background: #333; cursor: not-allowed; }
+        button#send-btn:hover { background: var(--highlight); }
+        button#send-btn:disabled { background: #333; }
     </style>
 </head>
 <body>
 
 <div class="crt-container">
     <div class="crt-overlay"></div>
-    <header>DeepSeek RPG // OPENROUTER</header>
+    <header>DeepSeek RPG // INTERACTIVE</header>
     
     <div id="game-log">
-        <div class="message dm-msg">>> SYSTEM: Инициализация OpenRouter...</div>
-        <div class="message dm-msg">>> KEY: ...f2d6 (Loaded)</div>
-        <div class="message dm-msg">В каком жанре начнем игру? (Киберпанк, Фэнтези, Сталкер, Хоррор)</div>
+        <div class="message dm-msg">>> SYSTEM: Нейро-ядро подключено.</div>
+        <div class="message dm-msg">Выберите жанр для инициализации симуляции:</div>
+    </div>
+
+    <div id="choices-container">
+        <button class="choice-btn" onclick="handleChoice('Киберпанк')">1. Киберпанк</button>
+        <button class="choice-btn" onclick="handleChoice('Космический Хоррор')">2. Космический Хоррор</button>
+        <button class="choice-btn" onclick="handleChoice('Темное Фэнтези')">3. Темное Фэнтези</button>
     </div>
 
     <div class="input-area">
-        <input type="text" id="user-input" placeholder="Введите жанр..." autocomplete="off">
+        <input type="text" id="user-input" placeholder="Или введите свое действие..." autocomplete="off">
         <button id="send-btn">⏎</button>
     </div>
 </div>
 
 <script>
-    // --- КЛЮЧ ОТ OPENROUTER ---
+    // --- КЛЮЧ ---
     const API_KEY = "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";
     const API_URL = "https://openrouter.ai/api/v1/chat/completions";
     
+    // ВАЖНО: Системная инструкция теперь требует JSON
+    const SYSTEM_PROMPT = `
+    Ты — Dungeon Master в текстовой игре. 
+    ТВОЯ ЗАДАЧА: Вести игру, описывать ситуации и предлагать выбор.
+    
+    ФОРМАТ ОТВЕТА (СТРОГИЙ JSON):
+    Ты ОБЯЗАН отвечать ТОЛЬКО валидным JSON объектом без лишнего текста и без markdown блоков.
+    Структура JSON:
+    {
+        "story": "Здесь твое художественное описание ситуации (максимум 400 символов).",
+        "options": ["Короткий вариант действия 1", "Короткий вариант действия 2", "Короткий вариант действия 3"]
+    }
+    
+    Никогда не выходи из роли. Язык: Русский.
+    `;
+
     let conversationHistory = [
-        {
-            role: "system",
-            content: "Ты — ведущий текстовой RPG (Dungeon Master). Иди сразу к делу. Описывай ситуации кратко, но атмосферно. Не используй списки, пиши художественным текстом. Всегда заканчивай вопросом: 'Что будешь делать?'."
-        },
-        {
-            role: "assistant",
-            content: "Система готова. Выберите жанр."
-        }
+        { role: "system", content: SYSTEM_PROMPT }
     ];
 
     const gameLog = document.getElementById('game-log');
     const userInput = document.getElementById('user-input');
     const sendBtn = document.getElementById('send-btn');
+    const choicesContainer = document.getElementById('choices-container');
 
-    function appendMessage(sender, text, isError = false) {
-        const div = document.createElement('div');
-        div.classList.add('message');
-        if (isError) {
-            div.classList.add('error-msg');
-        } else {
-            div.classList.add(sender === 'User' ? 'user-msg' : 'dm-msg');
-        }
-        
-        div.innerText = isError ? text : `[${sender}]: ${text}`;
-        gameLog.appendChild(div);
+    // Функция прокрутки вниз
+    function scrollToBottom() {
         gameLog.scrollTop = gameLog.scrollHeight;
     }
 
-    async function makeMove() {
-        const text = userInput.value.trim();
-        if (!text) return;
+    // Добавление сообщения в чат
+    function appendMessage(sender, text, isError = false) {
+        const div = document.createElement('div');
+        div.classList.add('message');
+        div.classList.add(isError ? 'error-msg' : (sender === 'User' ? 'user-msg' : 'dm-msg'));
+        
+        // Обработка переносов строк
+        div.innerHTML = isError ? text : `[${sender}]: ${text.replace(/\n/g, '<br>')}`;
+        gameLog.appendChild(div);
+        scrollToBottom();
+    }
 
+    // Рендер кнопок выбора
+    function renderButtons(options) {
+        choicesContainer.innerHTML = ''; // Очищаем старые
+        options.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.classList.add('choice-btn');
+            btn.innerText = `> ${opt}`;
+            btn.onclick = () => handleChoice(opt);
+            choicesContainer.appendChild(btn);
+        });
+    }
+
+    // Обработка клика по кнопке или ввода текста
+    async function handleChoice(text) {
+        if (!text) return;
+        
+        // 1. Интерфейс
         appendMessage("User", text);
         userInput.value = '';
-        userInput.disabled = true;
-        sendBtn.disabled = true;
-        sendBtn.innerText = "Думаю...";
+        setLoadingState(true);
+        choicesContainer.innerHTML = ''; // Убираем кнопки, пока думает
 
+        // 2. Добавляем в историю
         conversationHistory.push({ role: "user", content: text });
 
+        // 3. Запрос к API
         try {
             const response = await fetch(API_URL, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${API_KEY}`,
-                    "HTTP-Referer": window.location.href, // Обязательно для OpenRouter
-                    "X-Title": "DeepSeek RPG Client"      // Обязательно для OpenRouter
+                    "HTTP-Referer": window.location.href,
+                    "X-Title": "DeepSeek RPG"
                 },
                 body: JSON.stringify({
-                    model: "deepseek/deepseek-chat", // V3
+                    model: "deepseek/deepseek-chat",
                     messages: conversationHistory,
-                    temperature: 1.1,
-                    max_tokens: 1000
+                    temperature: 1.1, // Креативность
+                    response_format: { type: "json_object" } // Просим JSON явно (если API поддерживает)
                 })
             });
 
+            if (!response.ok) throw new Error("Ошибка сервера: " + response.status);
+
             const data = await response.json();
+            const rawContent = data.choices[0].message.content;
 
-            // ПРОВЕРКА НА ОШИБКИ API
-            if (!response.ok) {
-                // Пытаемся достать текст ошибки из ответа сервера
-                const errorMsg = data.error ? data.error.message : "Неизвестная ошибка";
-                throw new Error(`Ошибка сервера ${response.status}: ${errorMsg}`);
+            // 4. Парсинг ответа (попытка извлечь JSON)
+            let parsedResponse;
+            try {
+                // Иногда ИИ пишет ```json ... ```, чистим это
+                const cleanJson = rawContent.replace(/```json/g, '').replace(/```/g, '').trim();
+                parsedResponse = JSON.parse(cleanJson);
+            } catch (e) {
+                console.error("Ошибка парсинга JSON:", e);
+                // Если ИИ сломался и вернул просто текст
+                parsedResponse = {
+                    story: rawContent,
+                    options: ["Продолжить", "Осмотреться"]
+                };
             }
+
+            // 5. Вывод результата
+            appendMessage("DM", parsedResponse.story);
+            renderButtons(parsedResponse.options || []);
             
-            if (!data.choices || data.choices.length === 0) {
-                 throw new Error("Пустой ответ от нейросети.");
-            }
-
-            const botReply = data.choices[0].message.content;
-
-            appendMessage("DM", botReply);
-            conversationHistory.push({ role: "assistant", content: botReply });
+            // Сохраняем ответ ассистента в историю, но в виде строки
+            conversationHistory.push({ role: "assistant", content: rawContent });
 
         } catch (error) {
             appendMessage("SYSTEM", error.message, true);
-            console.error(error);
+            // Кнопка восстановления
+            renderButtons(["Попробовать снова"]);
         } finally {
-            userInput.disabled = false;
-            sendBtn.disabled = false;
-            sendBtn.innerText = "⏎";
-            userInput.focus();
+            setLoadingState(false);
         }
     }
 
-    sendBtn.addEventListener('click', makeMove);
+    // Управление состоянием загрузки
+    function setLoadingState(isLoading) {
+        userInput.disabled = isLoading;
+        sendBtn.disabled = isLoading;
+        sendBtn.innerText = isLoading ? "..." : "⏎";
+        if (!isLoading) userInput.focus();
+    }
+
+    // Слушатели событий ввода
+    sendBtn.addEventListener('click', () => handleChoice(userInput.value.trim()));
     userInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') makeMove();
+        if (e.key === 'Enter') handleChoice(userInput.value.trim());
     });
-    
-    userInput.focus();
 
 </script>
 </body>
