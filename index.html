@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DeepSeek RPG: OpenRouter Edition</title>
+    <title>DeepSeek RPG: OpenRouter Live</title>
     <style>
         :root {
             --bg-color: #0d1117;
@@ -69,7 +69,7 @@
 
         .dm-msg { color: var(--text-color); }
         .user-msg { color: var(--user-text); text-align: right; }
-        .error-msg { color: var(--error-text); border: 1px solid var(--error-text); padding: 10px; }
+        .error-msg { color: var(--error-text); border: 1px solid var(--error-text); padding: 10px; background: rgba(50,0,0,0.5); }
 
         .input-area {
             padding: 20px;
@@ -108,11 +108,11 @@
 
 <div class="crt-container">
     <div class="crt-overlay"></div>
-    <header>DeepSeek RPG // OPENROUTER LINK</header>
+    <header>DeepSeek RPG // OPENROUTER</header>
     
     <div id="game-log">
-        <div class="message dm-msg">>> SYSTEM: Ключ OpenRouter обнаружен.</div>
-        <div class="message dm-msg">>> SYSTEM: Канал связи стабилен.</div>
+        <div class="message dm-msg">>> SYSTEM: Инициализация OpenRouter...</div>
+        <div class="message dm-msg">>> KEY: ...f2d6 (Loaded)</div>
         <div class="message dm-msg">В каком жанре начнем игру? (Киберпанк, Фэнтези, Сталкер, Хоррор)</div>
     </div>
 
@@ -123,10 +123,8 @@
 </div>
 
 <script>
-    // --- ВАШ НОВЫЙ КЛЮЧ ---
+    // --- КЛЮЧ ОТ OPENROUTER ---
     const API_KEY = "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";
-    
-    // Используем OpenRouter, так как ключ формата sk-or-v1...
     const API_URL = "https://openrouter.ai/api/v1/chat/completions";
     
     let conversationHistory = [
@@ -166,7 +164,7 @@
         userInput.value = '';
         userInput.disabled = true;
         sendBtn.disabled = true;
-        sendBtn.innerText = "...";
+        sendBtn.innerText = "Думаю...";
 
         conversationHistory.push({ role: "user", content: text });
 
@@ -176,29 +174,28 @@
                 headers: {
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${API_KEY}`,
-                    "HTTP-Referer": window.location.href, // Требуется для OpenRouter
-                    "X-Title": "DeepSeek RPG" // Требуется для OpenRouter
+                    "HTTP-Referer": window.location.href, // Обязательно для OpenRouter
+                    "X-Title": "DeepSeek RPG Client"      // Обязательно для OpenRouter
                 },
                 body: JSON.stringify({
-                    // Указываем модель DeepSeek через OpenRouter
-                    model: "deepseek/deepseek-chat", 
+                    model: "deepseek/deepseek-chat", // V3
                     messages: conversationHistory,
                     temperature: 1.1,
                     max_tokens: 1000
                 })
             });
 
-            if (!response.ok) {
-                const errData = await response.json();
-                console.error(errData);
-                throw new Error(`Ошибка сервера ${response.status}: ${errData.error?.message || 'Неизвестная ошибка'}`);
-            }
-
             const data = await response.json();
+
+            // ПРОВЕРКА НА ОШИБКИ API
+            if (!response.ok) {
+                // Пытаемся достать текст ошибки из ответа сервера
+                const errorMsg = data.error ? data.error.message : "Неизвестная ошибка";
+                throw new Error(`Ошибка сервера ${response.status}: ${errorMsg}`);
+            }
             
-            // Защита от пустого ответа
-            if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-                 throw new Error("Пустой ответ от API");
+            if (!data.choices || data.choices.length === 0) {
+                 throw new Error("Пустой ответ от нейросети.");
             }
 
             const botReply = data.choices[0].message.content;
@@ -208,6 +205,7 @@
 
         } catch (error) {
             appendMessage("SYSTEM", error.message, true);
+            console.error(error);
         } finally {
             userInput.disabled = false;
             sendBtn.disabled = false;
