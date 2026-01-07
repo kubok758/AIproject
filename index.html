@@ -2,17 +2,20 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DeepSeek RPG: Chimera Edition</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>\\ DeepSeek RPG //</title>
     <style>
         :root {
             --bg-color: #0d1117;
             --terminal-bg: #000;
-            --text-color: #33ff00;
-            --user-text: #00e5ff;
+            --text-color: #33ff00; /* Зеленый терминал */
+            --user-text: #00e5ff;   /* Голубой текст юзера */
             --dim-text: #2d5e2d;
             --highlight: #adff2f;
+            --btn-bg: #112211;
         }
+
+        * { box-sizing: border-box; }
 
         body {
             margin: 0;
@@ -20,137 +23,144 @@
             background-color: var(--bg-color);
             font-family: 'Courier New', Courier, monospace;
             color: var(--text-color);
-            display: flex;
-            justify-content: center;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        .crt-container {
-            width: 100%;
-            max-width: 800px;
-            background-color: var(--terminal-bg);
+            height: 100vh; /* На весь экран */
             display: flex;
             flex-direction: column;
-            position: relative;
-            box-shadow: 0 0 20px rgba(51, 255, 0, 0.2);
-            border: 1px solid #333;
+            overflow: hidden; /* Скроллится только чат */
         }
 
-        .crt-overlay {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-            background-size: 100% 2px, 3px 100%;
-            pointer-events: none;
+        /* Шапка */
+        header {
+            background: #111;
+            padding: 10px 15px;
+            border-bottom: 1px solid var(--dim-text);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+            color: var(--highlight);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
             z-index: 10;
         }
 
-        header {
-            padding: 15px;
-            border-bottom: 1px solid var(--dim-text);
-            text-align: center;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            font-weight: bold;
-            color: var(--highlight);
+        #reset-btn {
+            background: #330000;
+            color: #ff5555;
+            border: 1px solid #550000;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
         }
 
+        /* Область чата */
         #game-log {
-            flex: 1;
-            padding: 20px;
-            overflow-y: auto;
+            flex: 1; /* Занимает всё доступное место */
+            padding: 15px;
+            overflow-y: auto; /* Скролл только здесь */
+            background-color: var(--terminal-bg);
             font-size: 16px;
-            line-height: 1.6;
-            scroll-behavior: smooth;
+            line-height: 1.5;
+            -webkit-overflow-scrolling: touch; /* Плавный скролл на iOS */
         }
 
-        .message { margin-bottom: 20px; animation: fadeIn 0.3s forwards; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .message {
+            margin-bottom: 15px;
+            max-width: 100%;
+            word-wrap: break-word;
+        }
 
         .dm-msg { color: var(--text-color); }
-        .user-msg { color: var(--user-text); text-align: right; border-right: 2px solid var(--user-text); padding-right: 10px; }
-        .error-msg { color: #ff3333; border: 1px solid #ff3333; padding: 10px; background: rgba(50,0,0,0.5); }
+        .user-msg { 
+            color: var(--user-text); 
+            text-align: right; 
+            background: rgba(0, 229, 255, 0.05);
+            padding: 5px 10px;
+            border-radius: 5px;
+            margin-left: 20%;
+        }
+        .error-msg { color: #ff5555; border: 1px solid #ff5555; padding: 5px; }
 
+        /* Область управления (низ) */
+        .controls-area {
+            background: #050505;
+            border-top: 1px solid var(--dim-text);
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* Кнопки вариантов */
         #choices-container {
             display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            padding: 0 20px 15px 20px;
-            min-height: 50px;
-            justify-content: flex-end;
-            z-index: 20;
+            flex-direction: column; /* Вертикальный список для мобилок */
+            gap: 8px;
         }
 
         .choice-btn {
-            background: #001100;
+            background: var(--btn-bg);
             border: 1px solid var(--dim-text);
             color: var(--highlight);
-            padding: 10px 15px;
-            cursor: pointer;
+            padding: 12px;
             font-family: inherit;
-            font-size: 14px;
-            transition: 0.2s;
+            font-size: 15px;
             text-align: left;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: 0.2s;
+            /* Для мобилок: убираем синюю подсветку при тапе */
+            -webkit-tap-highlight-color: transparent;
         }
 
-        .choice-btn:hover {
-            border-color: var(--highlight);
-            background: #002200;
-            box-shadow: 0 0 10px var(--dim-text);
-        }
+        .choice-btn:active { background: #003300; transform: scale(0.98); }
 
-        .input-area {
-            padding: 20px;
-            border-top: 1px solid var(--dim-text);
+        /* Поле ввода */
+        .input-row {
             display: flex;
             gap: 10px;
-            background: #000;
-            z-index: 20;
         }
 
         input[type="text"] {
             flex: 1;
-            background: #111;
+            background: #1a1a1a;
             border: 1px solid var(--dim-text);
-            color: var(--text-color);
-            padding: 10px;
+            color: white;
+            padding: 12px;
+            border-radius: 4px;
             font-family: inherit;
-            font-size: 16px;
+            font-size: 16px; /* 16px чтобы iOS не зумил */
             outline: none;
         }
+
         input[type="text"]:focus { border-color: var(--highlight); }
 
-        button#send-btn {
+        #send-btn {
             background: var(--dim-text);
-            color: #000;
+            color: black;
             border: none;
-            padding: 10px 20px;
-            cursor: pointer;
+            padding: 0 20px;
             font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
         }
-        button#send-btn:disabled { background: #333; cursor: not-allowed; }
     </style>
 </head>
 <body>
 
-<div class="crt-container">
-    <div class="crt-overlay"></div>
-    <header>DeepSeek R1T2 // CHIMERA RPG</header>
-    
-    <div id="game-log">
-        <div class="message dm-msg">>> SYSTEM: Подключение к модулю Chimera (Free)...</div>
-        <div class="message dm-msg">>> SYSTEM: Связь установлена.</div>
-        <div class="message dm-msg">В каком жанре начнем игру?</div>
+<header>
+    <span>DEEPSEEK RPG</span>
+    <button id="reset-btn" title="Сбросить игру">↻ NEW GAME</button>
+</header>
+
+<div id="game-log">
     </div>
 
+<div class="controls-area">
     <div id="choices-container">
-        <button class="choice-btn" onclick="handleChoice('Киберпанк')">1. Киберпанк</button>
-        <button class="choice-btn" onclick="handleChoice('Хоррор в космосе')">2. Хоррор в космосе</button>
-        <button class="choice-btn" onclick="handleChoice('Постапокалипсис')">3. Постапокалипсис</button>
-    </div>
+        </div>
 
-    <div class="input-area">
+    <div class="input-row">
         <input type="text" id="user-input" placeholder="Ваше действие..." autocomplete="off">
         <button id="send-btn">⏎</button>
     </div>
@@ -160,38 +170,76 @@
     // --- НАСТРОЙКИ ---
     const API_KEY = "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";
     const API_URL = "https://openrouter.ai/api/v1/chat/completions";
-    // Используем бесплатную модель из вашего списка:
     const MODEL_ID = "tngtech/deepseek-r1t2-chimera:free"; 
+    const STORAGE_KEY = "deepseek_rpg_save_v2"; // Ключ для сохранения
 
+    // Стандартный старт
     const SYSTEM_PROMPT = `
     Ты — Dungeon Master (Ведущий). Твоя задача: вести текстовую RPG на русском языке.
-    
-    ВАЖНО: Твой ответ ВСЕГДА должен быть в формате JSON. Не пиши никакого вступления, только JSON.
-    
+    Твой ответ ВСЕГДА должен быть в формате JSON.
     Структура JSON:
     {
-        "story": "Текст ситуации (атмосферный, но лаконичный, до 500 символов).",
-        "options": ["Вариант действия 1", "Вариант действия 2", "Вариант действия 3"]
+        "story": "Текст ситуации (атмосферный, до 400 символов).",
+        "options": ["Вариант 1", "Вариант 2", "Вариант 3"]
     }
-
-    Если пользователь говорит не по теме, обыграй это в сюжете или верни игру в русло.
     `;
 
-    let conversationHistory = [
-        { role: "system", content: SYSTEM_PROMPT }
-    ];
-
+    // --- ПЕРЕМЕННЫЕ ---
+    let conversationHistory = [];
+    
+    // Элементы
     const gameLog = document.getElementById('game-log');
     const userInput = document.getElementById('user-input');
     const sendBtn = document.getElementById('send-btn');
     const choicesContainer = document.getElementById('choices-container');
+    const resetBtn = document.getElementById('reset-btn');
 
-    function appendMessage(sender, text, isError = false) {
+    // --- ЗАГРУЗКА ИСТОРИИ ---
+    function init() {
+        const savedData = localStorage.getItem(STORAGE_KEY);
+        if (savedData) {
+            // Восстанавливаем игру
+            const parsed = JSON.parse(savedData);
+            conversationHistory = parsed.history;
+            
+            // Отрисовываем чат заново
+            gameLog.innerHTML = '';
+            parsed.uiLog.forEach(item => {
+                appendMessageToUI(item.sender, item.text);
+            });
+            
+            // Восстанавливаем последние кнопки
+            if (parsed.lastOptions) {
+                renderButtons(parsed.lastOptions);
+            }
+        } else {
+            // Новая игра
+            startNewGame();
+        }
+    }
+
+    function startNewGame() {
+        localStorage.removeItem(STORAGE_KEY);
+        gameLog.innerHTML = '';
+        choicesContainer.innerHTML = '';
+        conversationHistory = [{ role: "system", content: SYSTEM_PROMPT }];
+        
+        appendMessageToUI('DM', 'Система готова. Выберите жанр:');
+        renderButtons(['Киберпанк', 'Хоррор', 'Фэнтези', 'Зомби']);
+        saveGame(['Киберпанк', 'Хоррор', 'Фэнтези', 'Зомби']);
+    }
+
+    // --- ФУНКЦИИ UI ---
+    function appendMessageToUI(sender, text) {
         const div = document.createElement('div');
         div.classList.add('message');
-        div.classList.add(isError ? 'error-msg' : (sender === 'User' ? 'user-msg' : 'dm-msg'));
-        div.innerHTML = isError ? text : `[${sender}]: ${text.replace(/\n/g, '<br>')}`;
+        div.classList.add(sender === 'User' ? 'user-msg' : 'dm-msg');
+        div.innerHTML = text.replace(/\n/g, '<br>');
         gameLog.appendChild(div);
+        scrollToBottom();
+    }
+
+    function scrollToBottom() {
         gameLog.scrollTop = gameLog.scrollHeight;
     }
 
@@ -206,78 +254,88 @@
             btn.onclick = () => handleChoice(opt);
             choicesContainer.appendChild(btn);
         });
+        scrollToBottom(); // Чтобы кнопки были видны
     }
 
+    // --- СОХРАНЕНИЕ ---
+    function saveGame(currentOptions = []) {
+        // Мы сохраняем и техническую историю (для API) и визуальную (для глаза)
+        const uiLog = [];
+        document.querySelectorAll('.message').forEach(el => {
+            uiLog.push({
+                sender: el.classList.contains('user-msg') ? 'User' : 'DM',
+                text: el.innerHTML // innerHTML сохраняет <br>
+            });
+        });
+
+        const saveData = {
+            history: conversationHistory,
+            uiLog: uiLog,
+            lastOptions: currentOptions
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(saveData));
+    }
+
+    // --- ЛОГИКА ИГРЫ ---
     async function handleChoice(text) {
         if (!text) return;
         
-        appendMessage("User", text);
+        // 1. Отображаем выбор
+        appendMessageToUI("User", text);
         userInput.value = '';
-        choicesContainer.innerHTML = ''; 
+        choicesContainer.innerHTML = ''; // Скрываем кнопки
         setLoading(true);
 
+        // 2. Добавляем в историю API
         conversationHistory.push({ role: "user", content: text });
 
         try {
+            // 3. Запрос
             const response = await fetch(API_URL, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${API_KEY}`,
                     "HTTP-Referer": window.location.href,
-                    "X-Title": "Chimera RPG"
+                    "X-Title": "Mobile RPG"
                 },
                 body: JSON.stringify({
                     model: MODEL_ID,
                     messages: conversationHistory,
-                    temperature: 0.8, // Чуть ниже, чтобы формат не ломался
-                    // Убрали response_format, так как бесплатные модели могут его не поддерживать
+                    temperature: 0.8
                 })
             });
 
-            if (!response.ok) {
-                const errText = await response.text();
-                throw new Error(`Ошибка API ${response.status}: ${errText}`);
-            }
-
+            if (!response.ok) throw new Error("Ошибка связи с сервером");
             const data = await response.json();
-            
-            if (!data.choices || !data.choices[0]) {
-                 throw new Error("Пустой ответ от нейросети");
-            }
-
             const rawContent = data.choices[0].message.content;
 
-            // --- Умный парсинг JSON ---
+            // 4. Парсинг JSON (Умный поиск)
             let result;
             try {
-                // Ищем первую фигурную скобку и последнюю
                 const jsonStart = rawContent.indexOf('{');
                 const jsonEnd = rawContent.lastIndexOf('}');
-                
                 if (jsonStart !== -1 && jsonEnd !== -1) {
                     const jsonString = rawContent.substring(jsonStart, jsonEnd + 1);
                     result = JSON.parse(jsonString);
-                } else {
-                    throw new Error("JSON не найден");
-                }
-            } catch (e) {
-                console.warn("Ошибка парсинга JSON, используем raw text:", e);
-                // Если модель вернула просто текст, а не JSON
-                result = {
-                    story: rawContent,
-                    options: ["Продолжить", "Осмотреться", "Попробовать что-то еще"]
+                } else { throw new Error("No JSON"); }
+            } catch {
+                result = { 
+                    story: rawContent, 
+                    options: ["Продолжить", "Осмотреться"] 
                 };
             }
 
-            appendMessage("DM", result.story || "...");
+            // 5. Вывод
+            appendMessageToUI("DM", result.story || "...");
             renderButtons(result.options);
             
-            // Сохраняем ответ ассистента
+            // 6. Обновление истории и Сохранение
             conversationHistory.push({ role: "assistant", content: rawContent });
+            saveGame(result.options);
 
         } catch (error) {
-            appendMessage("SYSTEM", error.message, true);
+            appendMessageToUI("DM", `<span style='color:red'>Ошибка: ${error.message}</span>`);
             renderButtons(["Попробовать снова"]);
         } finally {
             setLoading(false);
@@ -288,13 +346,23 @@
         userInput.disabled = isLoading;
         sendBtn.disabled = isLoading;
         sendBtn.innerText = isLoading ? "..." : "⏎";
-        if (!isLoading) userInput.focus();
+        if (!isLoading) {
+            setTimeout(() => userInput.focus(), 100); // Небольшая задержка для мобилок
+        }
     }
 
-    sendBtn.addEventListener('click', () => handleChoice(userInput.value.trim()));
-    userInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleChoice(userInput.value.trim());
-    });
+    // --- СОБЫТИЯ ---
+    sendBtn.onclick = () => handleChoice(userInput.value.trim());
+    userInput.onkeypress = (e) => { if(e.key === 'Enter') handleChoice(userInput.value.trim()); };
+    
+    resetBtn.onclick = () => {
+        if(confirm("Начать новую историю? Текущий прогресс удалится.")) {
+            startNewGame();
+        }
+    };
+
+    // Запуск
+    init();
 
 </script>
 </body>
