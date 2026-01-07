@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeepSeek RPG: Neural Quest</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --terminal-bg: #000;
+            --text-color: #33ff00; /* Классический хакерский зеленый */
+            --user-text: #00e5ff;
+            --dim-text: #2d5e2d;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            font-family: 'Courier New', Courier, monospace;
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .crt-container {
+            width: 100%;
+            max-width: 800px;
+            background-color: var(--terminal-bg);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            box-shadow: 0 0 20px rgba(51, 255, 0, 0.2);
+            border: 1px solid #333;
+        }
+
+        /* Эффект старого монитора */
+        .crt-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        header {
+            padding: 15px;
+            border-bottom: 1px solid var(--dim-text);
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: bold;
+        }
+
+        #game-log {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            font-size: 16px;
+            line-height: 1.6;
+            scroll-behavior: smooth;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            opacity: 0;
+            animation: fadeIn 0.5s forwards;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        .dm-msg { color: var(--text-color); }
+        .user-msg { color: var(--user-text); text-align: right; }
+        .system-msg { color: #ff3333; font-style: italic; }
+
+        .input-area {
+            padding: 20px;
+            border-top: 1px solid var(--dim-text);
+            display: flex;
+            gap: 10px;
+            background: #000;
+            z-index: 20;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            background: #111;
+            border: 1px solid var(--dim-text);
+            color: var(--text-color);
+            padding: 10px;
+            font-family: inherit;
+            font-size: 16px;
+            outline: none;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--text-color);
+        }
+
+        button {
+            background: var(--dim-text);
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+
+        button:hover {
+            background: var(--text-color);
+        }
+
+        button:disabled {
+            background: #333;
+            cursor: not-allowed;
+        }
+
+        /* Настройки API */
+        #api-modal {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        
+        .modal-content {
+            background: #111;
+            padding: 30px;
+            border: 1px solid var(--text-color);
+            text-align: center;
+            width: 80%;
+            max-width: 400px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="crt-container">
+    <div class="crt-overlay"></div>
+    <header>DeepSeek RPG // v1.0</header>
+    
+    <div id="game-log">
+        <div class="message dm-msg">Добро пожаловать в Нейро-Квест.</div>
+        <div class="message dm-msg">Введите ваш API ключ, чтобы начать генерацию мира.</div>
+    </div>
+
+    <div class="input-area">
+        <input type="text" id="user-input" placeholder="Ваше действие..." autocomplete="off">
+        <button id="send-btn">⏎</button>
+    </div>
+</div>
+
+<div id="api-modal">
+    <div class="modal-content">
+        <h3>SYSTEM CONFIG</h3>
+        <p>Введите DeepSeek API Key:</p>
+        <input type="password" id="api-key-input" placeholder="sk-..." style="width: 90%; margin-bottom: 10px;">
+        <br>
+        <button id="save-key-btn">START SYSTEM</button>
+    </div>
+</div>
+
+<script>
+    // КОНФИГУРАЦИЯ
+    let API_KEY = "";
+    const API_URL = "https://api.deepseek.com/chat/completions";
+    
+    // История сообщений (контекст)
+    let conversationHistory = [
+        {
+            role: "system",
+            content: "Ты — ведущий текстовой RPG игры (Dungeon Master). Твоя задача — описывать окружение, последствия действий игрока и вести сюжет. Пиши атмосферно, но лаконично (не более 3-4 предложений за раз). Всегда предлагай игроку выбор или спрашивай 'Что ты будешь делать?'. Используй русский язык."
+        },
+        {
+            role: "assistant",
+            content: "Система инициализирована. В каком жанре вы хотите сыграть? (Киберпанк, Фэнтези, Постапокалипсис, Хоррор)"
+        }
+    ];
+
+    const gameLog = document.getElementById('game-log');
+    const userInput = document.getElementById('user-input');
+    const sendBtn = document.getElementById('send-btn');
+    const apiModal = document.getElementById('api-modal');
+    const apiKeyInput = document.getElementById('api-key-input');
+    const saveKeyBtn = document.getElementById('save-key-btn');
+
+    // Логика API ключа
+    saveKeyBtn.addEventListener('click', () => {
+        const key = apiKeyInput.value.trim();
+        if (key.startsWith('sk-')) {
+            API_KEY = key;
+            apiModal.style.display = 'none';
+            appendMessage("DM", "Система инициализирована. В каком жанре вы хотите сыграть? (Киберпанк, Фэнтези, Постапокалипсис, Хоррор)");
+        } else {
+            alert('Неверный формат ключа (должен начинаться с sk-)');
+        }
+    });
+
+    // Функция добавления сообщений
+    function appendMessage(sender, text) {
+        const div = document.createElement('div');
+        div.classList.add('message');
+        div.classList.add(sender === 'User' ? 'user-msg' : 'dm-msg');
+        
+        // Простой эффект печатания для текста
+        div.innerText = `[${sender}]: ${text}`;
+        gameLog.appendChild(div);
+        gameLog.scrollTop = gameLog.scrollHeight;
+    }
+
+    // Отправка запроса к DeepSeek
+    async function makeMove() {
+        const text = userInput.value.trim();
+        if (!text) return;
+
+        // 1. Показать сообщение пользователя
+        appendMessage("User", text);
+        userInput.value = '';
+        userInput.disabled = true;
+        sendBtn.disabled = true;
+        sendBtn.innerText = "...";
+
+        // 2. Добавить в историю
+        conversationHistory.push({ role: "user", content: text });
+
+        try {
+            // 3. Запрос к API
+            const response = await fetch(API_URL, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${API_KEY}`
+                },
+                body: JSON.stringify({
+                    model: "deepseek-chat", // или deepseek-coder
+                    messages: conversationHistory,
+                    temperature: 1.3 // Высокая температура для креативности
+                })
+            });
+
+            if (!response.ok) throw new Error(`Ошибка API: ${response.status}`);
+
+            const data = await response.json();
+            const botReply = data.choices[0].message.content;
+
+            // 4. Показать ответ и сохранить
+            appendMessage("DM", botReply);
+            conversationHistory.push({ role: "assistant", content: botReply });
+
+        } catch (error) {
+            appendMessage("SYSTEM", "Ошибка связи с нейросетью: " + error.message);
+        } finally {
+            userInput.disabled = false;
+            sendBtn.disabled = false;
+            sendBtn.innerText = "⏎";
+            userInput.focus();
+        }
+    }
+
+    // События
+    sendBtn.addEventListener('click', makeMove);
+    userInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') makeMove();
+    });
+
+</script>
+</body>
+</html>
